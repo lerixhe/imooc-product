@@ -7,9 +7,6 @@ import (
 	"imooc-product/fronted/web/controllers"
 	"imooc-product/repositories"
 	"imooc-product/services"
-	"time"
-
-	"github.com/kataras/iris/sessions"
 
 	"github.com/kataras/golog"
 
@@ -41,21 +38,20 @@ func main() {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	// 设置session
-	sessions := sessions.New(
-		sessions.Config{
-			// 标记用户会话的纯session,能再未登录的情况下，确定一个用户
-			// Cookie:  "helloworld",
-			Expires: 60 * time.Hour,
-		},
-	)
-	// sessions := &sessions.Sessions{}
+	// // 设置session
+	// sessions := sessions.New(
+	// 	sessions.Config{
+	// 		// 标记用户会话的纯session,能再未登录的情况下，确定一个用户
+	// 		// Cookie:  "helloworld",
+	// 		Expires: 60 * time.Hour,
+	// 	},
+	// )
 	//5.注册控制器
 	userRepository := repositories.NewUserManagerRepository("user", db)
 	userSerivce := services.NewUserService(userRepository)
 	userParty := app.Party("/user")
 	user := mvc.New(userParty)
-	user.Register(ctx, userSerivce, sessions.Start) //带上session
+	user.Register(ctx, userSerivce) //带上session
 	user.Handle(new(controllers.UserController))
 
 	// 取得所需服务实例
@@ -69,7 +65,7 @@ func main() {
 	// 根据路由组实例，获得mvc实例
 	product := mvc.New(productParty)
 	// 将服务实例注入这个mvc实例，并使用对应的contrller实例处理
-	product.Register(ctx, productService, orderService, sessions.Start)
+	product.Register(ctx, productService, orderService)
 	product.Handle(new(controllers.ProductControllers))
 
 	//6.启动服务

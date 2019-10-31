@@ -8,8 +8,6 @@ import (
 	"github.com/kataras/golog"
 	"github.com/kataras/iris/mvc"
 
-	"github.com/kataras/iris/sessions"
-
 	"github.com/kataras/iris"
 )
 
@@ -19,18 +17,10 @@ type ProductControllers struct {
 	ProductService services.IProductService
 	// 用户购买商品，会创建订单，用到订单服务，注意提前注册
 	OrderService services.IOrderService
-	Session      *sessions.Session
 }
 
 func (p *ProductControllers) GetDetail() mvc.View {
-	sessionKey := p.Ctx.GetCookie("userlogin")
-	userID := p.Session.Get(sessionKey)
-	if userID.(int64) == 0 {
-		golog.Debug("用户校验失败")
-		p.Ctx.Redirect("/user/login")
-		return mvc.View{}
-	}
-	golog.Debug("当前用户", userID)
+	userID := p.Ctx.GetCookie("uid")
 	product, err := p.ProductService.GetProductByID(1)
 	if err != nil {
 		golog.Error(err)
@@ -60,9 +50,16 @@ func (p *ProductControllers) GetOrder() mvc.View {
 			},
 		}
 	}
-	cookie := p.Ctx.GetCookie("userlogin")
-	userIDx := p.Session.Get(cookie)
-	userID := userIDx.(int64)
+	userID, err := strconv.ParseInt(p.Ctx.GetCookie("uid"), 10, 64)
+	if err != nil {
+		golog.Error(err)
+		return mvc.View{Name: "shared/error.html",
+			Data: iris.Map{
+				"Message": "数据转换错误",
+			},
+		}
+
+	}
 	product, err := p.ProductService.GetProductByID(productID)
 	if err != nil {
 		golog.Error(err)

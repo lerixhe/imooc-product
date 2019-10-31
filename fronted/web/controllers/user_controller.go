@@ -3,13 +3,14 @@ package controllers
 import (
 	"imooc-product/common"
 	"imooc-product/datamodels"
+	"imooc-product/encrypt"
 	"imooc-product/services"
 	"imooc-product/tool"
+	"strconv"
 
 	"github.com/kataras/golog"
 
 	"github.com/kataras/iris/mvc"
-	"github.com/kataras/iris/sessions"
 
 	"github.com/kataras/iris"
 )
@@ -17,7 +18,6 @@ import (
 type UserController struct {
 	Ctx         iris.Context
 	UserService services.IUserService
-	Session     *sessions.Session
 }
 
 func (u *UserController) GetRegister() mvc.View {
@@ -60,18 +60,25 @@ func (u *UserController) PostLogin() mvc.Response {
 	password := u.Ctx.FormValue("password")
 	_, isOK := u.UserService.IsPwdSussess(userName, password)
 	if !isOK {
-		golog.Debug("登陆失败，用户名或密码不正确！")
+		golog.Error("登陆失败，用户名或密码不正确！")
 		return mvc.Response{Path: "/user/login"}
 	}
 	user, err := u.UserService.GetUserByName(userName)
 	if err != nil {
-		golog.Debug("获取用户信息失败！")
+		golog.Error("获取用户信息失败！")
 		return mvc.Response{Path: "/user/login"}
 	}
-	u.Session.Set("sessionID"+userName+password+"md5", user.ID)
-	golog.Debug("session设置成功！", u.Session.Get("sessionID"+userName+password+"md5"))
-	tool.GlobalCookie(u.Ctx, "userlogin", "sessionID"+userName+password+"md5", 60*60*24)
-	golog.Debug("cookie设置成功！", u.Ctx.GetCookie("userlogin"))
+	// 将用户id写入Cookie
+	tool.GlobalCookie(u.Ctx, "uid", strconv.FormatInt(user.ID, 10), 60*60*24)
+	golog.Debug("cookie设置成功！", u.Ctx.GetCookie("uid"))
+	// 加uid加密
+	uidString, err := encrypt.EnPwdCode([]byte(strconv.FormatInt(user.ID, 10)))
+	if err != nil {
+		golog.Error("加密失败！", err)
+		return mvc.Response{Path: "/user/login"}
+	}
+	// 将用户加密信息写入Cookie
+	tool.GlobalCookie(u.Ctx, "sign", uidString, 60*60*24)
 	golog.Debug("登陆成功！")
 	return mvc.Response{Path: "/product/detail"}
 }
