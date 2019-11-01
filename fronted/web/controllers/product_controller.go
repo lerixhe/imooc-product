@@ -1,7 +1,9 @@
 package controllers
 
 import (
+	"encoding/json"
 	"imooc-product/datamodels"
+	"imooc-product/rabbitmq"
 	"imooc-product/services"
 	"strconv"
 
@@ -15,6 +17,7 @@ type ProductControllers struct {
 	Ctx iris.Context
 	// 商品服务
 	ProductService services.IProductService
+	RabbitMQ       *rabbitmq.RabbitMQ
 	// 用户购买商品，会创建订单，用到订单服务，注意提前注册
 	OrderService services.IOrderService
 }
@@ -39,83 +42,88 @@ func (p *ProductControllers) GetDetail() mvc.View {
 		},
 	}
 }
-func (p *ProductControllers) GetOrder() mvc.View {
+func (p *ProductControllers) GetOrder() []byte {
 	productIDstr := p.Ctx.URLParam("productID")
 	productID, err := strconv.ParseInt(productIDstr, 10, 64)
 	if err != nil {
-		golog.Error(err)
-		return mvc.View{Name: "shared/error.html",
-			Data: iris.Map{
-				"Message": "数据格式错误",
-			},
-		}
+		golog.Error("数据格式错误", err)
+		return []byte("false")
 	}
 	userID, err := strconv.ParseInt(p.Ctx.GetCookie("uid"), 10, 64)
 	if err != nil {
-		golog.Error(err)
-		return mvc.View{Name: "shared/error.html",
-			Data: iris.Map{
-				"Message": "数据转换错误",
-			},
-		}
+		golog.Error("userID转换int64错误", err)
+		return []byte("false")
 
 	}
-	product, err := p.ProductService.GetProductByID(productID)
+	message := datamodels.NewMessage(productID, userID)
+	messageByte, err := json.Marshal(message)
+	if err != nil {
+		golog.Error("message转换为json错误", err)
+		return []byte("false")
+	}
+	err = p.RabbitMQ.PublishSimple(string(messageByte))
 	if err != nil {
 		golog.Error(err)
-		return mvc.View{Name: "shared/error.html",
-			Data: iris.Map{
-				"Message": "数据查询错误",
-			},
-		}
-
+		return []byte("false")
 	}
-	var orderID int64
-	var showMessage string
-	// 判断商品库存
-	if product.ProductNum > 0 {
-		// p.Ctx.BeginTransaction()
-		// 减库存
-		product.ProductNum--
-		err := p.ProductService.UpdateProduct(product)
-		if err != nil {
-			golog.Error(err)
-			product.ProductNum++
-			return mvc.View{Name: "shared/error.html",
-				Data: iris.Map{
-					"Message": "库存更新失败",
-				},
-			}
+	return []byte("true")
+	// product, err := p.ProductService.GetProductByID(productID)
+	// if err != nil {
+	// 	golog.Error(err)
+	// 	return mvc.View{Name: "shared/error.html",
+	// 		Data: iris.Map{
+	// 			"Message": "数据查询错误",
+	// 		},
+	// 	}
 
-		}
-		golog.Debug("库存更新成功！订单还在创建中,商品ID:", productID)
-		// 创订单
-		order := &datamodels.Order{
-			UserId:      userID,
-			ProductId:   productID,
-			OrderStatus: datamodels.OrderSuccess,
-		}
-		orderID, err = p.OrderService.InsertOrder(order)
-		if err != nil {
-			golog.Error(err)
-			return mvc.View{Name: "shared/error.html",
-				Data: iris.Map{
-					"Message": "订单创建失败",
-				},
-			}
+	// }
+	// var orderID int64
+	// var showMessage string
+	// // 判断商品库存
+	// if product.ProductNum > 0 {
+	// 	// p.Ctx.BeginTransaction()
+	// 	// 减库存
+	// 	product.ProductNum--
+	// 	err := p.ProductService.UpdateProduct(product)
+	// 	if err != nil {
+	// 		golog.Error(err)
+	// 		product.ProductNum++
+	// 		return mvc.View{Name: "shared/error.html",
+	// 			Data: iris.Map{
+	// 				"Message": "库存更新失败",
+	// 			},
+	// 		}
 
-		}
-		golog.Debug("订单创建成功！订单ID", orderID)
-		showMessage = "抢购成功！请尽快付款"
-	} else {
-		showMessage = "库存不足"
-	}
-	return mvc.View{
-		Layout: "shared/productLayout.html",
-		Name:   "product/result.html",
-		Data: iris.Map{
-			"orderID":     orderID,
-			"showMessage": showMessage,
-		},
-	}
+	// 	}
+	// 	golog.Debug("库存更新成功！订单还在创建中,商品ID:", productID)
+	// 	// 创订单
+	// 	order := &datamodels.Order{
+	// 		UserId:      userID,
+	// 		ProductId:   productID,
+	// 		OrderStatus: datamodels.OrderSuccess,
+	// 	}
+	// 	orderID, err = p.OrderService.InsertOrder(order)
+	// 	if err != nil {
+	// 		golog.Error(err)
+	// 		return mvc.View{Name: "shared/error.html",
+	// 			Data: iris.Map{
+	// 				"Message": "订单创建失败",
+	// 			},
+	// 		}
+
+	// 	}
+	// 	golog.Debug("订单创建成功！订单ID", orderID)
+	// 	showMessage = "抢购成功！请尽快付款"
+	// } else {
+	// 	showMessage = "库存不足"
+	// }
+	// return mvc.View{
+	// 	Layout: "shared/productLayout.html",
+	// 	Name:   "product/result.html",
+	// 	Data: iris.Map{
+	// 		"orderID":     orderID,
+	// 		"showMessage": showMessage,
+	// 	},
+	// }
+
 }

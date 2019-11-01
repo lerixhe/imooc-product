@@ -5,6 +5,7 @@ import (
 	"imooc-product/common"
 	"imooc-product/fronted/middleware"
 	"imooc-product/fronted/web/controllers"
+	"imooc-product/rabbitmq"
 	"imooc-product/repositories"
 	"imooc-product/services"
 
@@ -46,6 +47,7 @@ func main() {
 	// 		Expires: 60 * time.Hour,
 	// 	},
 	// )
+	rabbitmq := rabbitmq.NewSimpleRabbitMQ("imoocProduct")
 	//5.注册控制器
 	userRepository := repositories.NewUserManagerRepository("user", db)
 	userSerivce := services.NewUserService(userRepository)
@@ -65,7 +67,7 @@ func main() {
 	// 根据路由组实例，获得mvc实例
 	product := mvc.New(productParty)
 	// 将服务实例注入这个mvc实例，并使用对应的contrller实例处理
-	product.Register(ctx, productService, orderService)
+	product.Register(ctx, productService, orderService, rabbitmq)
 	product.Handle(new(controllers.ProductControllers))
 
 	//6.启动服务

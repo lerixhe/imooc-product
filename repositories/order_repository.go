@@ -46,9 +46,9 @@ func (o *OrderMangerRepository) Insert(order *datamodels.Order) (productID int64
 		// golog.Error(err)
 		return -1, err
 	}
-	golog.Debug("传入的订单信息", order)
+	// golog.Debug("传入的订单信息", order)
 	sql := "INSERT INTO " + o.table + "  SET userID = ?,productID = ?,orderStatus = ? "
-	golog.Debug("sql:", sql)
+	// golog.Debug("sql:", sql)
 	stmt, errStmt := o.mysqlConn.Prepare(sql)
 	if errStmt != nil {
 		golog.Error("准备sql出错")
