@@ -16,7 +16,6 @@ func AuthConProduct(ctx iris.Context) {
 		ctx.Redirect("/user/login")
 		return
 	}
-
 	strByte, err := encrypt.DePwdCode(signKey)
 	if err != nil {
 		golog.Error("cookie解密失败", err)
